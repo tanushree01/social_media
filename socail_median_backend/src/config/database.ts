@@ -1,6 +1,7 @@
 import { Sequelize } from 'sequelize';
 
-export const sequelize = new Sequelize('your_db_name', 'your_db_user', 'your_db_password', {
+export const sequelize = new Sequelize('', 'root', '', {
   host: 'localhost',
+  port: 3306, // default MySQL port in XAMPP
   dialect: 'mysql',
 });
