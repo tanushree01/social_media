@@ -1,13 +1,15 @@
 "use client";
 
-import { useAuth } from "@/context/AuthContext";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { Button } from "../ui/button";
 import { Home, User, Users, LogOut, Menu, X } from "lucide-react";
+import { useAppDispatch, useAppSelector } from "@/redux/hooks";
+import { logout } from "@/redux/slices/authSlice";
 
 export function MainNav() {
-  const { user, logout } = useAuth();
+  const dispatch = useAppDispatch();
+  const { user } = useAppSelector(state => state.auth);
   const [isOpen, setIsOpen] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string>("");
 
@@ -21,6 +23,10 @@ export function MainNav() {
       setAvatarUrl(`https://ui-avatars.com/api/?name=User&background=random`);
     }
   }, [user]);
+
+  const handleLogout = () => {
+    dispatch(logout());
+  };
 
   const toggleMenu = () => {
     setIsOpen(!isOpen);
@@ -55,7 +61,7 @@ export function MainNav() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={logout}
+              onClick={handleLogout}
               className="ml-2 text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
             >
               <LogOut className="h-4 w-4" />
@@ -120,7 +126,7 @@ export function MainNav() {
             </Link>
             <button
               onClick={() => {
-                logout();
+                handleLogout();
                 setIsOpen(false);
               }}
               className="w-full text-left block px-3 py-2 rounded-md text-base font-medium hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"

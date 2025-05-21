@@ -2,41 +2,57 @@
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
+import { useAppDispatch, useAppSelector } from "@/redux/hooks";
+import { register, clearError } from "@/redux/slices/authSlice";
 
 export default function RegisterPage() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const { register } = useAuth();
+  
+  const dispatch = useAppDispatch();
+  const { isLoading, error } = useAppSelector((state) => state.auth);
+  
   const { toast } = useToast();
   const router = useRouter();
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
+  useEffect(() => {
+    // Clear errors when component mounts
+    dispatch(clearError());
+  }, [dispatch]);
 
-    try {
-      await register({ username, email, password, name });
-      toast({
-        title: "Success",
-        description: "Account created successfully. You can now log in.",
-      });
-      router.push("/login");
-    } catch (error) {
+  useEffect(() => {
+    // Show error toast if registration fails
+    if (error) {
       toast({
         variant: "destructive",
         title: "Registration Failed",
-        description: error instanceof Error ? error.message : "An error occurred during registration",
+        description: error,
       });
-    } finally {
-      setIsLoading(false);
+    }
+  }, [error, toast]);
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+
+    try {
+      const resultAction = await dispatch(register({ username, email, password, name }));
+      
+      if (register.fulfilled.match(resultAction)) {
+        toast({
+          title: "Success",
+          description: "Account created successfully. You can now log in.",
+        });
+        router.push("/login");
+      }
+    } catch (error) {
+      // Error is already handled in the useEffect above
+      console.error("Registration error:", error);
     }
   };
 

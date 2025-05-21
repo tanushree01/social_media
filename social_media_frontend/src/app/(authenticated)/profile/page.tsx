@@ -42,7 +42,7 @@ export default function ProfilePage() {
     
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/posts?userId=${user.id}`, {
+      const response = await fetch(`/api/posts/me`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },

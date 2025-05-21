@@ -1,17 +1,17 @@
 "use client";
 
 import { MainNav } from "@/components/navigation/MainNav";
-import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { ReactNode, useEffect, useState } from "react";
+import { useAppSelector } from "@/redux/hooks";
 
 export default function AuthenticatedLayout({
   children,
 }: {
   children: ReactNode;
 }) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading } = useAppSelector(state => state.auth);
   const router = useRouter();
   const { toast } = useToast();
   const [isMounted, setIsMounted] = useState(false);

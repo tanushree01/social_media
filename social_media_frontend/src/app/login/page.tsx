@@ -2,39 +2,62 @@
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
+import { useAppDispatch, useAppSelector } from "@/redux/hooks";
+import { login, clearError } from "@/redux/slices/authSlice";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  
+  const dispatch = useAppDispatch();
+  const { isLoading, error, isAuthenticated } = useAppSelector((state) => state.auth);
+  
   const { toast } = useToast();
   const router = useRouter();
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
+  useEffect(() => {
+    // Clear errors when component mounts
+    dispatch(clearError());
+  }, [dispatch]);
 
-    try {
-      await login(email, password);
-      toast({
-        title: "Success",
-        description: "Logged in successfully",
-      });
+  useEffect(() => {
+    // Redirect if already authenticated
+    if (isAuthenticated) {
       router.push("/feed");
-    } catch (error) {
+    }
+  }, [isAuthenticated, router]);
+
+  useEffect(() => {
+    // Show error toast if login fails
+    if (error) {
       toast({
         variant: "destructive",
         title: "Login Failed",
-        description: error instanceof Error ? error.message : "An error occurred during login",
+        description: error,
       });
-    } finally {
-      setIsLoading(false);
+    }
+  }, [error, toast]);
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+
+    try {
+      const resultAction = await dispatch(login({ email, password }));
+      // Check if the action was fulfilled
+      if (login.fulfilled.match(resultAction)) {
+        toast({
+          title: "Success",
+          description: "Logged in successfully",
+        });
+        router.push("/feed");
+      }
+    } catch (error) {
+      // Error is already handled in the useEffect above
+      console.error("Login error:", error);
     }
   };
 
