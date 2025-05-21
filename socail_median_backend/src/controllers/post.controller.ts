@@ -58,6 +58,38 @@ export const getPosts = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Error fetching posts', error });
   }
 };
+export const getMyPost = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const posts = await Post.findAll({
+      include: [
+        {
+          model: User,
+          attributes: ['id', 'username', 'name', 'profilePicture']
+        },
+        {
+          model: Comment,
+          include: [{
+            model: User,
+            attributes: ['id', 'username', 'name', 'profilePicture']
+          }]
+        },
+        {
+          model: Like,
+          attributes: ['userId']
+        }
+      ],
+      order: [['createdAt', 'DESC']],
+      where: {
+        userId
+      }
+    });
+
+    res.json(posts);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching posts', error });
+  }
+};
 
 export const getPost = async (req: Request, res: Response) => {
   try {
