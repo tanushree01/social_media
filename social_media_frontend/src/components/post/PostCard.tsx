@@ -7,79 +7,92 @@ import { useState, useEffect } from "react";
 import { Button } from "../ui/button";
 import { CommentList } from "./CommentList";
 import { CreateCommentForm } from "./CreateCommentForm";
-import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useAppDispatch, useAppSelector } from "@/redux/hooks";
+import { toggleLike, deletePost, addComment } from "@/redux/slices/postsSlice";
 
-interface User {
-  id: number;
-  username: string;
-  name: string;
-  profilePicture?: string;
-}
+// Import types from postsSlice to ensure consistency
+import type { Post } from "@/redux/slices/postsSlice";
 
+// This Comment interface aligns with the one in CommentList.tsx
 interface Comment {
   id: number;
   content: string;
   createdAt: string;
-  User: User;
-}
-
-export interface Post {
-  id: number;
-  content: string;
-  imageUrl?: string;
-  createdAt: string;
-  userId: number;
-  User: User;
-  comments: Comment[];
-  likes: { userId: number }[];
+  user: {
+    id: number;
+    username: string;
+    name: string;
+    profilePicture?: string;
+  };
 }
 
 interface PostCardProps {
   post: Post;
   onDelete: (postId: number) => void;
+  showCommentsInitially?: boolean;
 }
 
-export function PostCard({ post, onDelete }: PostCardProps) {
+export function PostCard({ post, onDelete, showCommentsInitially = true }: PostCardProps) {
   const [isLiked, setIsLiked] = useState(false);
-  const [likesCount, setLikesCount] = useState(post.likes?.length || 0);
-  const [showComments, setShowComments] = useState(false);
+  const [likesCount, setLikesCount] = useState(0);
+  const [showComments, setShowComments] = useState(showCommentsInitially);
   const [showMenu, setShowMenu] = useState(false);
-  const [comments, setComments] = useState<Comment[]>(post.comments || []);
-  const { user: currentUser, token } = useAuth();
+  const [comments, setComments] = useState<Comment[]>([]);
+
+  const dispatch = useAppDispatch();
+  const { user: currentUser, token } = useAppSelector(state => state.auth);
   const { toast } = useToast();
 
   const createdAt = post?.createdAt ? new Date(post.createdAt) : new Date();
   const isOwnPost = currentUser?.id === post?.userId;
 
+  // Handle API response format which uses uppercase "Comments" and "Likes"
+  useEffect(() => {
+    // Handle Comments array (uppercase or lowercase from API)
+    const commentsArray = post.Comments || post.comments || [];
+    const formattedComments = commentsArray.map((comment: any) => ({
+      id: comment.id,
+      content: comment.content,
+      createdAt: comment.createdAt,
+      user: comment.User || comment.user // Handle both uppercase and lowercase
+    }));
+    setComments(formattedComments);
+
+    // Handle Likes array (uppercase or lowercase from API)
+    const likesArray = post.Likes || post.likes || [];
+    setLikesCount(likesArray.length);
+
+    // Check if current user has liked this post
+    if (currentUser && likesArray.some((like: any) => like.userId === currentUser.id)) {
+      setIsLiked(true);
+    } else {
+      setIsLiked(false);
+    }
+  }, [post, currentUser]);
+
   // Use proxy for images
   const profileImageUrl = post?.User?.profilePicture
-    ? `${post.User.profilePicture}`
+    ? `/${post.User.profilePicture}`
     : `https://ui-avatars.com/api/?name=${encodeURIComponent(post?.User?.username || "User")}&background=random`;
 
   const postImageUrl = post?.imageUrl
     ? `/${post.imageUrl}`
     : null;
 
-  useEffect(() => {
-    if (post.likes?.some((like) => like.userId === currentUser?.id)) {
-      setIsLiked(true);
-    }
-  }, [post.likes, currentUser?.id , profileImageUrl]);
-
   const handleLikeToggle = async () => {
+    if (!currentUser || !token) return;
+
     try {
-      const response = await fetch(`/api/likes/post/${post.id}`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      await dispatch(toggleLike({ 
+        postId: post.id,
+        token,
+        userId: currentUser.id
+      })).unwrap();
 
-      if (!response.ok) throw new Error("Failed to toggle like");
-
+      // Update UI immediately before Redux state updates
       setIsLiked(!isLiked);
-      setLikesCount((prev) => (isLiked ? prev - 1 : prev + 1));
+      setLikesCount(prevCount => isLiked ? prevCount - 1 : prevCount + 1);
     } catch (error) {
       toast({
         title: "Error",
@@ -90,21 +103,17 @@ export function PostCard({ post, onDelete }: PostCardProps) {
   };
 
   const handleCommentAdded = (newComment: Comment) => {
-    setComments((prev) => [newComment, ...prev]);
+    setComments(prev => [newComment, ...prev]);
   };
 
   const handleDeletePost = async () => {
     if (!window.confirm("Are you sure you want to delete this post?")) return;
 
     try {
-      const response = await fetch(`/api/posts/${post.id}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) throw new Error("Failed to delete post");
+      await dispatch(deletePost({ 
+        postId: post.id,
+        token: token!
+      })).unwrap();
 
       onDelete(post.id);
       toast({
@@ -120,6 +129,10 @@ export function PostCard({ post, onDelete }: PostCardProps) {
     }
   };
 
+  const toggleComments = () => {
+    setShowComments(!showComments);
+  };
+
   return (
     <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow mb-6">
       <div className="flex items-start justify-between">
@@ -128,7 +141,7 @@ export function PostCard({ post, onDelete }: PostCardProps) {
             <img
               src={profileImageUrl}
               alt={post?.User?.username || "User"}
-              className="h-10 w-10 rounded-full mr-3"
+              className="h-10 w-10 rounded-full mr-3 object-cover"
             />
           </Link>
           <div>
@@ -136,7 +149,7 @@ export function PostCard({ post, onDelete }: PostCardProps) {
               href={`/profile/${post?.User?.id || ""}`}
               className="font-semibold text-gray-900 dark:text-white hover:underline"
             >
-              {post?.User?.username || "Unknown"}
+              {post?.User?.name || "Unknown"}
             </Link>
             <p className="text-xs text-gray-500 dark:text-gray-400">
               @{post?.User?.username || "unknown"} • {formatRelativeTime(createdAt)}
@@ -195,7 +208,7 @@ export function PostCard({ post, onDelete }: PostCardProps) {
 
           <button
             className="flex items-center space-x-1 text-gray-500 dark:text-gray-400 hover:text-blue-500"
-            onClick={() => setShowComments(!showComments)}
+            onClick={toggleComments}
           >
             <MessageCircle className="h-5 w-5" />
             <span>{comments.length}</span>

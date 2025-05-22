@@ -3,6 +3,7 @@ import { Post } from '../models/post.model';
 import { User } from '../models/user.model';
 import { Comment } from '../models/comment.model';
 import { Like } from '../models/like.model';
+import { Follow } from '../models/follow.model';
 
 // Post Controllers
 export const createPost = async (req: Request, res: Response) => {
@@ -32,7 +33,39 @@ export const createPost = async (req: Request, res: Response) => {
 
 export const getPosts = async (req: Request, res: Response) => {
   try {
+    const currentUserId = req.user?.id;
+
+    if (!currentUserId) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
+
+    // Get users that the current user follows
+    const following = await Follow.findAll({
+      where: { followerId: currentUserId },
+      attributes: ['followingId']
+    });
+    
+    const followingIds = following.map(f => f.followingId);
+    
+    // Get users who follow the current user (followers)
+    const followers = await Follow.findAll({
+      where: { followingId: currentUserId },
+      attributes: ['followerId']
+    });
+    
+    const followerIds = followers.map(f => f.followerId);
+    
+    // Find mutual followers (users who follow each other)
+    const mutualFollowIds = followingIds.filter(id => followerIds.includes(id));
+    
+    // Include the current user's ID to see their own posts
+    mutualFollowIds.push(currentUserId);
+    
+    // Get posts from mutual followers and the user's own posts
     const posts = await Post.findAll({
+      where: {
+        userId: mutualFollowIds
+      },
       include: [
         {
           model: User,
@@ -58,6 +91,7 @@ export const getPosts = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Error fetching posts', error });
   }
 };
+
 export const getMyPost = async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;

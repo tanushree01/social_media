@@ -2,26 +2,38 @@
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Post, PostCard } from "@/components/post/PostCard";
-import { useAuth } from "@/context/AuthContext";
+import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Camera, Loader2, Save } from "lucide-react";
+import { Camera, Loader2, Save, UserCheck, Users } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useAppDispatch, useAppSelector } from "@/redux/hooks";
+import { fetchUserPosts, Post } from "@/redux/slices/postsSlice";
+import { updateProfile, updateProfilePicture } from "@/redux/slices/authSlice";
+import { fetchFollowers, fetchFollowing } from "@/redux/slices/usersSlice";
+import { PostCard } from "@/components/post/PostCard";
+import Link from "next/link";
+import { deletePost } from "@/redux/slices/postsSlice";
 
 export default function ProfilePage() {
-  const { user, token } = useAuth();
+  const dispatch = useAppDispatch();
+  const { user, token, isLoading: authLoading } = useAppSelector(state => state.auth);
+  const { userPosts, isLoading: postsLoading } = useAppSelector(state => state.posts);
+  const { followers, following } = useAppSelector(state => state.users);
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState("");
   const [bio, setBio] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [profileImage, setProfileImage] = useState<File | null>(null);
   const [profileImagePreview, setProfileImagePreview] = useState<string | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    if (user) {
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (user && isMounted) {
       setName(user.name || "");
       setBio(user.bio || "");
       
@@ -29,41 +41,15 @@ export default function ProfilePage() {
         setProfileImagePreview(`/${user.profilePicture}`);
       }
     }
-  }, [user]);
+  }, [user, isMounted]);
 
   useEffect(() => {
-    if (token && user) {
-      fetchUserPosts();
+    if (token && isMounted) {
+      dispatch(fetchUserPosts(token));
+      dispatch(fetchFollowers(token));
+      dispatch(fetchFollowing(token));
     }
-  }, [token, user]);
-
-  const fetchUserPosts = async () => {
-    if (!user) return;
-    
-    setIsLoading(true);
-    try {
-      const response = await fetch(`/api/posts/me`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch posts");
-      }
-
-      const data = await response.json();
-      setPosts(data);
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to load posts",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  }, [dispatch, token, isMounted]);
 
   const handleProfileImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -79,55 +65,31 @@ export default function ProfilePage() {
   };
 
   const handleUpdateProfile = async () => {
-    setIsUpdating(true);
+    if (!user?.id || !token) return;
     
+    setIsUpdating(true);
     try {
       // Update basic profile info
-      const profileResponse = await fetch(`/api/users/profile/${user?.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ name, bio }),
-      });
-
-      if (!profileResponse.ok) {
-        throw new Error("Failed to update profile");
-      }
-
+      await dispatch(updateProfile({
+        userId: user.id,
+        profileData: { name, bio },
+        token
+      })).unwrap();
+      
       // Update profile picture if changed
       if (profileImage) {
-        const formData = new FormData();
-        formData.append("profilePicture", profileImage);
-
-        const imageResponse = await fetch(`/api/users/profile/${user?.id}/picture`, {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: formData,
-        });
-
-        if (!imageResponse.ok) {
-          throw new Error("Failed to update profile picture");
-        }
+        await dispatch(updateProfilePicture({
+          userId: user.id,
+          imageFile: profileImage,
+          token
+        })).unwrap();
       }
-
+      
       toast({
         title: "Success",
         description: "Profile updated successfully",
       });
       setIsEditing(false);
-      
-      // Refresh user data in local storage
-      const updatedUser = { 
-        ...user, 
-        name, 
-        bio,
-        profilePicture: profileImage ? "/path/to/new/image" : user?.profilePicture  // This is a placeholder, will be updated on next login
-      };
-      localStorage.setItem("user", JSON.stringify(updatedUser));
     } catch (error) {
       toast({
         title: "Error",
@@ -139,14 +101,38 @@ export default function ProfilePage() {
     }
   };
 
-  const handlePostDeleted = (postId: number) => {
-    setPosts(posts.filter((post) => post.id !== postId));
+  const handleDeletePost = (postId: number) => {
+    if (token) {
+      dispatch(deletePost({ postId, token }))
+        .unwrap()
+        .then(() => {
+          toast({
+            title: "Success",
+            description: "Post deleted successfully",
+          });
+        })
+        .catch((err) => {
+          toast({
+            title: "Error",
+            description: err || "Failed to delete post",
+            variant: "destructive",
+          });
+        });
+    }
   };
 
   const avatarUrl = profileImagePreview || 
     (user?.profilePicture 
       ? `/${user.profilePicture}` 
       : `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || "User")}&background=random&size=200`);
+
+  if (!isMounted) {
+    return (
+      <div className="flex justify-center items-center min-h-[50vh]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -155,7 +141,7 @@ export default function ProfilePage() {
         <div className="h-32 bg-gradient-to-r from-blue-500 to-purple-600"></div>
         
         {/* Profile info */}
-        <div className="p-6 relative">
+        <div className="relative px-6 pb-6 pt-20">
           {/* Profile picture */}
           <div className="absolute -top-16 left-6">
             <div className="relative">
@@ -179,7 +165,7 @@ export default function ProfilePage() {
           </div>
           
           {/* Profile details */}
-          <div className="ml-36 pt-2">
+          <div className="ml-36">
             {isEditing ? (
               <div className="space-y-4">
                 <div>
@@ -236,6 +222,20 @@ export default function ProfilePage() {
                   <div>
                     <h1 className="text-2xl font-bold">{user?.name}</h1>
                     <p className="text-gray-500 dark:text-gray-400">@{user?.username}</p>
+                    
+                    {/* Follower and Following counts */}
+                    <div className="flex mt-4 space-x-4">
+                      <Link href="/followers" className="flex items-center hover:text-blue-600 transition-colors">
+                        <Users className="h-4 w-4 mr-1" />
+                        <span className="font-medium">{followers.length}</span>
+                        <span className="ml-1 text-gray-500 dark:text-gray-400">Followers</span>
+                      </Link>
+                      <Link href="/following" className="flex items-center hover:text-blue-600 transition-colors">
+                        <UserCheck className="h-4 w-4 mr-1" />
+                        <span className="font-medium">{following.length}</span>
+                        <span className="ml-1 text-gray-500 dark:text-gray-400">Following</span>
+                      </Link>
+                    </div>
                   </div>
                   <Button
                     onClick={() => setIsEditing(true)}
@@ -255,25 +255,29 @@ export default function ProfilePage() {
       </div>
 
       {/* User posts */}
-      <h2 className="text-xl font-bold mt-8 mb-4">My Posts</h2>
-      
-      {isLoading ? (
-        <div className="flex justify-center py-10">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      ) : posts.length === 0 ? (
-        <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow text-center">
-          <p className="text-gray-500 dark:text-gray-400">
-            You haven&apos;t created any posts yet
-          </p>
-        </div>
-      ) : (
-        <div>
-          {posts.map((post) => (
-            <PostCard key={post.id} post={post} onDelete={handlePostDeleted} />
-          ))}
-        </div>
-      )}
+      <Card>
+        <CardContent className="pt-6">
+          <h2 className="text-xl font-bold mb-4">My Posts</h2>
+          
+          {postsLoading ? (
+            <div className="flex justify-center py-10">
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+            </div>
+          ) : userPosts.length === 0 ? (
+            <div className="text-center py-10">
+              <p className="text-gray-500 dark:text-gray-400">
+                You haven&apos;t created any posts yet
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {userPosts.map((post: Post) => (
+                <PostCard key={post.id} post={post} onDelete={handleDeletePost} />
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 } 

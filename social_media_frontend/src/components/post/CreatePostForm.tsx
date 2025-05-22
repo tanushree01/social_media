@@ -1,10 +1,11 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { FormEvent, useState } from "react";
 import { ImagePlus, Loader2 } from "lucide-react";
+import { useAppDispatch, useAppSelector } from "@/redux/hooks";
+import { createPost } from "@/redux/slices/postsSlice";
 
 interface CreatePostFormProps {
   onPostCreated: () => void;
@@ -14,8 +15,9 @@ export function CreatePostForm({ onPostCreated }: CreatePostFormProps) {
   const [content, setContent] = useState("");
   const [image, setImage] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const { token } = useAuth();
+  const dispatch = useAppDispatch();
+  const { token } = useAppSelector(state => state.auth);
+  const { isLoading, error } = useAppSelector(state => state.posts);
   const { toast } = useToast();
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -41,27 +43,22 @@ export function CreatePostForm({ onPostCreated }: CreatePostFormProps) {
       return;
     }
 
-    setIsLoading(true);
+    if (!token) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to create a post",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
-      const formData = new FormData();
-      formData.append("content", content);
-      if (image) {
-        formData.append("image", image);
-      }
-
-      const response = await fetch(`/api/posts`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to create post");
-      }
-
+      const resultAction = await dispatch(createPost({ 
+        content, 
+        image, 
+        token 
+      })).unwrap();
+      
       setContent("");
       setImage(null);
       setPreview(null);
@@ -73,11 +70,9 @@ export function CreatePostForm({ onPostCreated }: CreatePostFormProps) {
     } catch (error) {
       toast({
         title: "Error",
-        description: "Could not create your post. Please try again.",
+        description: typeof error === 'string' ? error : "Could not create your post. Please try again.",
         variant: "destructive",
       });
-    } finally {
-      setIsLoading(false);
     }
   };
 

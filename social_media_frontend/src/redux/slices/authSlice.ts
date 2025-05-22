@@ -1,6 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
-import Cookies from 'js-cookie';
 
 interface User {
   id: number;
@@ -19,13 +18,13 @@ interface AuthState {
   isAuthenticated: boolean;
 }
 
-// Try to get initial state from cookies (client-side only)
+// Try to get initial state from localStorage (client-side only)
 let user = null;
 let token = null;
 
 if (typeof window !== 'undefined') {
-  const storedToken = Cookies.get('token');
-  const storedUser = Cookies.get('user');
+  const storedToken = localStorage.getItem('token');
+  const storedUser = localStorage.getItem('user');
   
   if (storedToken) {
     token = storedToken;
@@ -35,8 +34,8 @@ if (typeof window !== 'undefined') {
     try {
       user = JSON.parse(storedUser);
     } catch (error) {
-      console.error('Error parsing user data from cookie:', error);
-      Cookies.remove('user');
+      console.error('Error parsing user data from localStorage:', error);
+      localStorage.removeItem('user');
     }
   }
 }

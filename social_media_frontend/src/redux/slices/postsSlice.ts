@@ -21,8 +21,10 @@ export interface Post {
   createdAt: string;
   userId: number;
   User: User;
-  comments: Comment[];
-  likes: { userId: number }[];
+  comments?: Comment[];
+  likes?: { userId: number }[];
+  Comments?: Comment[];
+  Likes?: { userId: number }[];
 }
 
 interface PostsState {

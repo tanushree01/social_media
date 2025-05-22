@@ -1,9 +1,10 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
+import { useAppDispatch, useAppSelector } from "@/redux/hooks";
+import { addComment } from "@/redux/slices/postsSlice";
 
 interface User {
   id: number;
@@ -26,55 +27,75 @@ interface CreateCommentFormProps {
 
 export function CreateCommentForm({ postId, onCommentAdded }: CreateCommentFormProps) {
   const [content, setContent] = useState("");
+  const [comments, setComments] = useState<Comment[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { user, token } = useAuth();
+  const dispatch = useAppDispatch();
+  const { user, token } = useAppSelector(state => state.auth);
   const { toast } = useToast();
+
+  useEffect(() => {
+    const getCommentList = async () => {
+      if (!token) return;
+      
+      try {
+        const response = await fetch(`/api/comments/post/${postId}`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+  
+        if (!response.ok) {
+          throw new Error("Failed to fetch comments");
+        }
+  
+        const data = await response.json();
+        setComments(data.comments); // assuming response has { comments: [...] }
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Could not load comments",
+          variant: "destructive",
+        });
+      }
+    };
+  
+    getCommentList();
+  }, [postId, token, toast]);
+  
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
     if (!content.trim()) return;
+    if (!user || !token) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to comment",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(
-        `/api/comments/post/${postId}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ content }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to add comment");
-      }
-
-      const data = await response.json();
-      
-      // Create a comment object to add to the UI
-      const newComment: Comment = {
-        id: data.comment.id,
+      const resultAction = await dispatch(addComment({
+        postId,
         content,
-        createdAt: new Date().toISOString(),
-        user: {
-          id: user!.id,
-          username: user!.username,
-          name: user!.name,
-          profilePicture: user!.profilePicture,
-        },
-      };
-
-      onCommentAdded(newComment);
+        token,
+        user
+      })).unwrap();
+      
+      // The comment is already added to the post in the Redux store
+      // but we still need to inform the parent component
+      onCommentAdded(resultAction.comment);
       setContent("");
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to add comment",
+        description: typeof error === 'string' ? error : "Failed to add comment",
         variant: "destructive",
       });
     } finally {

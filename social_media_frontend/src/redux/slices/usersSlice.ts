@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 
-interface User {
+export interface User {
   id: number;
   username: string;
   name: string;
@@ -10,12 +10,16 @@ interface User {
 
 interface UsersState {
   allUsers: User[];
+  following: User[];
+  followers: User[];
   isLoading: boolean;
   error: string | null;
 }
 
 const initialState: UsersState = {
   allUsers: [],
+  following: [],
+  followers: [],
   isLoading: false,
   error: null,
 };
@@ -114,6 +118,63 @@ export const unfollowUser = createAsyncThunk(
   }
 );
 
+// Fetch following users
+export const fetchFollowing = createAsyncThunk(
+  'users/fetchFollowing',
+  async (token: string, { rejectWithValue }) => {
+    try {
+      const response = await fetch('/api/follows/following', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        return rejectWithValue(errorData.message || 'Failed to fetch following list');
+      }
+
+      const followingData = await response.json();
+      // Extract actual user data from the following response
+      const following = followingData.map((follow: any) => ({
+        ...follow.Following,
+        isFollowing: true,
+      }));
+
+      return following;
+    } catch (error) {
+      return rejectWithValue('Network error. Please try again.');
+    }
+  }
+);
+
+// Fetch followers
+export const fetchFollowers = createAsyncThunk(
+  'users/fetchFollowers',
+  async (token: string, { rejectWithValue }) => {
+    try {
+      const response = await fetch('/api/follows/followers', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        return rejectWithValue(errorData.message || 'Failed to fetch followers list');
+      }
+
+      const followersData = await response.json();
+      // Extract actual user data from the followers response
+      const followers = followersData.map((follow: any) => follow.Follower);
+
+      return followers;
+    } catch (error) {
+      return rejectWithValue('Network error. Please try again.');
+    }
+  }
+);
+
 const usersSlice = createSlice({
   name: 'users',
   initialState,
@@ -147,6 +208,12 @@ const usersSlice = createSlice({
         if (user) {
           user.isFollowing = true;
         }
+
+        // Also update in the followers list
+        const follower = state.followers.find(u => u.id === userId);
+        if (follower) {
+          follower.isFollowing = true;
+        }
       })
       .addCase(followUser.rejected, (state, action) => {
         state.error = action.payload as string;
@@ -158,8 +225,43 @@ const usersSlice = createSlice({
         if (user) {
           user.isFollowing = false;
         }
+
+        // Also update in the followers list
+        const follower = state.followers.find(u => u.id === userId);
+        if (follower) {
+          follower.isFollowing = false;
+        }
+
+        // Remove from following list
+        state.following = state.following.filter(user => user.id !== userId);
       })
       .addCase(unfollowUser.rejected, (state, action) => {
+        state.error = action.payload as string;
+      })
+      // Fetch following
+      .addCase(fetchFollowing.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchFollowing.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.following = action.payload;
+      })
+      .addCase(fetchFollowing.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
+      // Fetch followers
+      .addCase(fetchFollowers.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchFollowers.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.followers = action.payload;
+      })
+      .addCase(fetchFollowers.rejected, (state, action) => {
+        state.isLoading = false;
         state.error = action.payload as string;
       });
   },
