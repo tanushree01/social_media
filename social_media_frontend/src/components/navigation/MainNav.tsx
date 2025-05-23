@@ -54,9 +54,9 @@ export function MainNav() {
               <User className="h-4 w-4" />
               <span>Profile</span>
             </Link>
-            <Link href="/users" className="px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
+            <Link href="/discover" className="px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
               <Users className="h-4 w-4" />
-              <span>Find People</span>
+              <span>Find Friends</span>
             </Link>
             <Button
               variant="ghost"
@@ -117,12 +117,12 @@ export function MainNav() {
               <span>Profile</span>
             </Link>
             <Link
-              href="/users"
+              href="/discover"
               className="block px-3 py-2 rounded-md text-base font-medium hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
               onClick={() => setIsOpen(false)}
             >
               <Users className="h-5 w-5" />
-              <span>Find People</span>
+              <span>Find Friends</span>
             </Link>
             <button
               onClick={() => {

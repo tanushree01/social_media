@@ -25,6 +25,8 @@ export interface Post {
   likes?: { userId: number }[];
   Comments?: Comment[];
   Likes?: { userId: number }[];
+  likeCount: number;
+  commentCount: number;
 }
 
 interface PostsState {
@@ -167,7 +169,13 @@ export const toggleLike = createAsyncThunk(
         return rejectWithValue(errorData.message || 'Failed to toggle like');
       }
 
-      return { postId, userId };
+      const data = await response.json();
+      // Return the data from API which includes postId, userId, liked status, and likeCount
+      return { 
+        postId, 
+        userId, 
+        likeCount: data.likeCount || 0 
+      };
     } catch (error) {
       return rejectWithValue('Network error. Please try again.');
     }
@@ -206,7 +214,12 @@ export const addComment = createAsyncThunk(
         user,
       };
 
-      return { postId, comment: newComment };
+      // Return including commentCount from API response
+      return { 
+        postId, 
+        comment: newComment,
+        commentCount: data.commentCount || 0
+      };
     } catch (error) {
       return rejectWithValue('Network error. Please try again.');
     }
@@ -256,7 +269,7 @@ const postsSlice = createSlice({
       })
       .addCase(createPost.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.feedPosts.unshift(action.payload);
+        state.feedPosts.unshift({...action.payload?.post,User:action.payload?.User});
         state.userPosts.unshift(action.payload);
       })
       .addCase(createPost.rejected, (state, action) => {
@@ -279,20 +292,25 @@ const postsSlice = createSlice({
       })
       // Toggle like
       .addCase(toggleLike.fulfilled, (state, action) => {
-        const { postId, userId } = action.payload;
-        
-        // Update both feed and user posts
+        const { postId, userId, likeCount } = action.payload;
+
         [state.feedPosts, state.userPosts].forEach(posts => {
           const post = posts.find(p => p.id === postId);
           if (post) {
+            if (!post.likes) {
+              post.likes = [];
+            }
+
             const isLiked = post.likes.some(like => like.userId === userId);
+
             if (isLiked) {
-              // Remove like
               post.likes = post.likes.filter(like => like.userId !== userId);
             } else {
-              // Add like
               post.likes.push({ userId });
             }
+
+            // Update the likeCount from API response
+            post.likeCount = likeCount;
           }
         });
       })
@@ -301,13 +319,19 @@ const postsSlice = createSlice({
       })
       // Add comment
       .addCase(addComment.fulfilled, (state, action) => {
-        const { postId, comment } = action.payload;
+        const { postId, comment, commentCount } = action.payload;
         
         // Update both feed and user posts
         [state.feedPosts, state.userPosts].forEach(posts => {
           const post = posts.find(p => p.id === postId);
           if (post) {
+            if (!post.comments) {
+              post.comments = [];
+            }
             post.comments.unshift(comment);
+            
+            // Update the commentCount from API response
+            post.commentCount = commentCount;
           }
         });
       })

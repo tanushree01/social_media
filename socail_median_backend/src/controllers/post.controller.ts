@@ -10,21 +10,27 @@ export const createPost = async (req: Request, res: Response) => {
   try {
     const { content } = req.body;
     const userId = req.user?.id;
-    const imageUrl = 'uploads/'+ req.file?.filename; // Assuming you're using multer for file upload
+    const imageUrl = req.file?.filename ? 'uploads/'+ req.file?.filename : ""; // Assuming you're using multer for file upload
 
     if (!userId) {
       return res.status(401).json({ message: 'Authentication required' });
     }
 
+    // Create post with default likeCount and commentCount (0)
     const post = await Post.create({
       content,
       userId,
-      imageUrl
+      imageUrl,
+      likeCount: 0,
+      commentCount: 0
     });
 
+    const user = await User.findByPk(userId);
     res.status(201).json({
       message: 'Post created successfully',
-      post
+      post,
+      User:user
+
     });
   } catch (error) {
     res.status(500).json({ message: 'Error creating post', error });
@@ -86,6 +92,7 @@ export const getPosts = async (req: Request, res: Response) => {
       order: [['createdAt', 'DESC']]
     });
 
+    // likeCount and commentCount are already included in the post model
     res.json(posts);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching posts', error });
@@ -119,6 +126,7 @@ export const getMyPost = async (req: Request, res: Response) => {
       }
     });
 
+    // likeCount and commentCount are already included in the post model
     res.json(posts);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching posts', error });
@@ -152,6 +160,7 @@ export const getPost = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Post not found' });
     }
 
+    // likeCount and commentCount are already included in the post model
     res.json(post);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching post', error });

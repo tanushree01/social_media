@@ -34,8 +34,8 @@ interface PostCardProps {
 }
 
 export function PostCard({ post, onDelete, showCommentsInitially = true }: PostCardProps) {
+  
   const [isLiked, setIsLiked] = useState(false);
-  const [likesCount, setLikesCount] = useState(0);
   const [showComments, setShowComments] = useState(showCommentsInitially);
   const [showMenu, setShowMenu] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -59,11 +59,8 @@ export function PostCard({ post, onDelete, showCommentsInitially = true }: PostC
     }));
     setComments(formattedComments);
 
-    // Handle Likes array (uppercase or lowercase from API)
-    const likesArray = post.Likes || post.likes || [];
-    setLikesCount(likesArray.length);
-
     // Check if current user has liked this post
+    const likesArray = post.Likes || post.likes || [];
     if (currentUser && likesArray.some((like: any) => like.userId === currentUser.id)) {
       setIsLiked(true);
     } else {
@@ -92,8 +89,10 @@ export function PostCard({ post, onDelete, showCommentsInitially = true }: PostC
 
       // Update UI immediately before Redux state updates
       setIsLiked(!isLiked);
-      setLikesCount(prevCount => isLiked ? prevCount - 1 : prevCount + 1);
+
     } catch (error) {
+        console.error("Like error:", error);
+
       toast({
         title: "Error",
         description: "Failed to like post",
@@ -203,7 +202,7 @@ export function PostCard({ post, onDelete, showCommentsInitially = true }: PostC
             onClick={handleLikeToggle}
           >
             <Heart className={`h-5 w-5 ${isLiked ? "fill-current" : ""}`} />
-            <span>{likesCount}</span>
+            <span>{post.likeCount || 0}</span>
           </button>
 
           <button
@@ -211,14 +210,14 @@ export function PostCard({ post, onDelete, showCommentsInitially = true }: PostC
             onClick={toggleComments}
           >
             <MessageCircle className="h-5 w-5" />
-            <span>{comments.length}</span>
+            <span>{post.commentCount || 0}</span>
           </button>
         </div>
       </div>
 
       {showComments && (
         <div className="mt-4 pt-4 border-t dark:border-gray-700">
-          <CreateCommentForm postId={post.id} onCommentAdded={handleCommentAdded} />
+          <CreateCommentForm postId={post.id} comments={post.Comments} onCommentAdded={handleCommentAdded} />
           <CommentList comments={comments} />
         </div>
       )}

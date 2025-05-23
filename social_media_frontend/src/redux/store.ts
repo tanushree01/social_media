@@ -2,6 +2,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import authReducer from './slices/authSlice';
 import postsReducer from './slices/postsSlice';
 import usersReducer from './slices/usersSlice';
+import userSearchReducer from './slices/userSearchSlice';
 import { authMiddleware } from './middleware/authMiddleware';
 
 export const store = configureStore({
@@ -9,6 +10,7 @@ export const store = configureStore({
     auth: authReducer,
     posts: postsReducer,
     users: usersReducer,
+    userSearch: userSearchReducer,
   },
   middleware: (getDefaultMiddleware) => 
     getDefaultMiddleware().concat(authMiddleware),

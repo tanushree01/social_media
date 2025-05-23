@@ -22,48 +22,17 @@ interface Comment {
 
 interface CreateCommentFormProps {
   postId: number;
+  comments :any;
   onCommentAdded: (comment: Comment) => void;
 }
 
-export function CreateCommentForm({ postId, onCommentAdded }: CreateCommentFormProps) {
+export function CreateCommentForm({ postId, comments, onCommentAdded }: CreateCommentFormProps) {
   const [content, setContent] = useState("");
-  const [comments, setComments] = useState<Comment[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const dispatch = useAppDispatch();
   const { user, token } = useAppSelector(state => state.auth);
   const { toast } = useToast();
 
-  useEffect(() => {
-    const getCommentList = async () => {
-      if (!token) return;
-      
-      try {
-        const response = await fetch(`/api/comments/post/${postId}`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        });
-  
-        if (!response.ok) {
-          throw new Error("Failed to fetch comments");
-        }
-  
-        const data = await response.json();
-        setComments(data.comments); // assuming response has { comments: [...] }
-      } catch (error) {
-        toast({
-          title: "Error",
-          description: "Could not load comments",
-          variant: "destructive",
-        });
-      }
-    };
-  
-    getCommentList();
-  }, [postId, token, toast]);
-  
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();

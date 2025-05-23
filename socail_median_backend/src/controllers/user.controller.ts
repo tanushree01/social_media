@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { User } from '../models/user.model';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import { Op } from 'sequelize';
 
 // Authentication Controllers
 export const register = async (req: Request, res: Response) => {
@@ -143,5 +144,34 @@ export const updateProfilePicture = async (req: Request, res: Response) => {
     });
   } catch (error) {
     res.status(500).json({ message: 'Error updating profile picture', error });
+  }
+};
+
+export const searchUsers = async (req: Request, res: Response) => {
+  try {
+    const { query } = req.query;
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+    const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
+    
+    if (!query) {
+      return res.status(400).json({ message: 'Search query is required' });
+    }
+
+    const users = await User.findAll({
+      where: {
+        [Op.or]: [
+          { username: { [Op.like]: `%${query}%` } },
+          { name: { [Op.like]: `%${query}%` } }
+        ]
+      },
+      attributes: ['id', 'username', 'name', 'bio', 'profilePicture'],
+      limit,
+      offset,
+    });
+
+    return res.status(200).json(users);
+  } catch (error) {
+    console.error('Error searching users:', error);
+    return res.status(500).json({ message: 'Server error' });
   }
 };
