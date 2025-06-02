@@ -19,8 +19,8 @@ interface Comment {
   _id: number;
   content: string;
   createdAt: string;
-  user: {
-    id: number;
+  userId: {
+    _id: number;
     username: string;
     name: string;
     profilePicture?: string;
@@ -148,10 +148,10 @@ export function PostCard({ post, onDelete, showCommentsInitially = true }: PostC
               href={`/profile/${post?.User?._id || ""}`}
               className="font-semibold text-gray-900 dark:text-white hover:underline"
             >
-              {post?.User?.name || "Unknown"}
+              {post?.userId?.username || "Unknown"}
             </Link>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              @{post?.User?.username || "unknown"} • {formatRelativeTime(createdAt)}
+              @{post?.userId?.username || "unknown"} • {formatRelativeTime(createdAt)}
             </p>
           </div>
         </div>
