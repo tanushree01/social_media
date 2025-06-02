@@ -1,30 +1,30 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 
 interface User {
-  id: number;
+  _id: string;
   username: string;
   name: string;
   profilePicture?: string;
 }
 
 interface Comment {
-  id: number;
+  _id: string;
   content: string;
   createdAt: string;
   user: User;
 }
 
 export interface Post {
-  id: number;
+  _id: string;
   content: string;
   imageUrl?: string;
   createdAt: string;
-  userId: number;
+  userId: string;
   User: User;
   comments?: Comment[];
-  likes?: { userId: number }[];
+  likes?: { userId: string }[];
   Comments?: Comment[];
-  Likes?: { userId: number }[];
+  Likes?: { userId: string }[];
   likeCount: number;
   commentCount: number;
 }
@@ -131,7 +131,7 @@ export const createPost = createAsyncThunk(
 // Delete a post
 export const deletePost = createAsyncThunk(
   'posts/deletePost',
-  async ({ postId, token }: { postId: number; token: string }, { rejectWithValue }) => {
+  async ({ postId, token }: { postId: string; token: string }, { rejectWithValue }) => {
     try {
       const response = await fetch(`/api/posts/${postId}`, {
         method: 'DELETE',
@@ -155,7 +155,7 @@ export const deletePost = createAsyncThunk(
 // Like or unlike a post
 export const toggleLike = createAsyncThunk(
   'posts/toggleLike',
-  async ({ postId, token, userId }: { postId: number; token: string; userId: number }, { rejectWithValue }) => {
+  async ({ postId, token, userId }: { postId: string; token: string; userId: string }, { rejectWithValue }) => {
     try {
       const response = await fetch(`/api/likes/post/${postId}`, {
         method: 'POST',
@@ -208,7 +208,7 @@ export const addComment = createAsyncThunk(
       
       // Create a comment object to add to the UI
       const newComment: Comment = {
-        id: data.comment.id,
+        id: data.comment._id,
         content,
         createdAt: new Date().toISOString(),
         user,
@@ -283,8 +283,8 @@ const postsSlice = createSlice({
       })
       .addCase(deletePost.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.feedPosts = state.feedPosts.filter((post) => post.id !== action.payload);
-        state.userPosts = state.userPosts.filter((post) => post.id !== action.payload);
+        state.feedPosts = state.feedPosts.filter((post) => post._id !== action.payload);
+        state.userPosts = state.userPosts.filter((post) => post._id !== action.payload);
       })
       .addCase(deletePost.rejected, (state, action) => {
         state.isLoading = false;
@@ -295,7 +295,7 @@ const postsSlice = createSlice({
         const { postId, userId, likeCount } = action.payload;
 
         [state.feedPosts, state.userPosts].forEach(posts => {
-          const post = posts.find(p => p.id === postId);
+          const post = posts.find(p => p._id === postId);
           if (post) {
             if (!post.likes) {
               post.likes = [];
@@ -323,7 +323,7 @@ const postsSlice = createSlice({
         
         // Update both feed and user posts
         [state.feedPosts, state.userPosts].forEach(posts => {
-          const post = posts.find(p => p.id === postId);
+          const post = posts.find(p => p._id === postId);
           if (post) {
             if (!post.comments) {
               post.comments = [];

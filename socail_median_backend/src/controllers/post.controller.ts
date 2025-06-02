@@ -48,11 +48,11 @@ export const getPosts = async (req: Request, res: Response) => {
 
     const posts = await PostModel.find({ userId: { $in: mutualFollowIds } })
       .populate('userId', 'id username name profilePicture')
-      .populate({
-        path: 'comments',
-        populate: { path: 'userId', select: 'id username name profilePicture' }
-      })
-      .populate('likes', 'userId')
+      // .populate({
+      //   path: 'comments',
+      //   populate: { path: 'userId', select: 'id username name profilePicture' }
+      // })
+      // .populate('likes', 'userId')
       .sort({ createdAt: -1 });
 
     res.json(posts);
@@ -68,11 +68,11 @@ export const getMyPost = async (req: Request, res: Response) => {
 
     const posts = await PostModel.find({ userId })
       .populate('userId', 'id username name profilePicture')
-      .populate({
-        path: 'comments',
-        populate: { path: 'userId', select: 'id username name profilePicture' }
-      })
-      .populate('likes', 'userId')
+      // .populate({
+      //   path: 'comments',
+      //   populate: { path: 'userId', select: 'id username name profilePicture' }
+      // })
+      // .populate('likes', 'userId')
       .sort({ createdAt: -1 });
 
     res.json(posts);
@@ -88,10 +88,10 @@ export const getPost = async (req: Request, res: Response) => {
 
     const post = await PostModel.findById(postId)
       .populate('userId', 'id username name profilePicture')
-      .populate({
-        path: 'comments',
-        populate: { path: 'userId', select: 'id username name profilePicture' }
-      })
+      // .populate({
+      //   path: 'comments',
+      //   populate: { path: 'userId', select: 'id username name profilePicture' }
+      // })
       .populate('likes', 'userId');
 
     if (!post) return res.status(404).json({ message: 'Post not found' });

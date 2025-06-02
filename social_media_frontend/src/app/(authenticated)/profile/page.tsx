@@ -65,13 +65,13 @@ export default function ProfilePage() {
   };
 
   const handleUpdateProfile = async () => {
-    if (!user?.id || !token) return;
+    if (!user?._id || !token) return;
     
     setIsUpdating(true);
     try {
       // Update basic profile info
       await dispatch(updateProfile({
-        userId: user.id,
+        userId: user._id,
         profileData: { name, bio },
         token
       })).unwrap();
@@ -79,7 +79,7 @@ export default function ProfilePage() {
       // Update profile picture if changed
       if (profileImage) {
         await dispatch(updateProfilePicture({
-          userId: user.id,
+          userId: user._id,
           imageFile: profileImage,
           token
         })).unwrap();
@@ -272,7 +272,7 @@ export default function ProfilePage() {
           ) : (
             <div className="space-y-4">
               {userPosts.map((post: Post) => (
-                <PostCard key={post.id} post={post} onDelete={handleDeletePost} />
+                <PostCard key={post._id} post={post} onDelete={handleDeletePost} />
               ))}
             </div>
           )}

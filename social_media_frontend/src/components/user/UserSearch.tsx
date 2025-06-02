@@ -120,10 +120,10 @@ export function UserSearch({ onClose, placeholder = "Search for friends..." }: U
         <div className="absolute z-50 mt-1 w-full bg-white dark:bg-gray-800 rounded-md shadow-lg max-h-80 overflow-y-auto border dark:border-gray-700">
           {users.map((user) => (
             <div
-              key={user.id}
+              key={user._id}
               className="flex items-center justify-between p-3 hover:bg-gray-100 dark:hover:bg-gray-700"
             >
-              <Link href={`/profile/${user.id}`} className="flex-1 flex items-center">
+              <Link href={`/profile/${user._id}`} className="flex-1 flex items-center">
                 <img
                   src={user.profilePicture ? `/${user.profilePicture}` : `https://ui-avatars.com/api/?name=${encodeURIComponent(user.username)}&background=random`}
                   alt={user.username}
@@ -139,13 +139,13 @@ export function UserSearch({ onClose, placeholder = "Search for friends..." }: U
                 </div>
               </Link>
 
-              {currentUser && currentUser.id !== user.id && (
-                isFollowing[user.id] ? (
+              {currentUser && currentUser._id !== user._id && (
+                isFollowing[user._id] ? (
                   <Button
                     variant="outline"
                     size="sm"
                     className="ml-2"
-                    onClick={() => handleUnfollow(user.id)}
+                    onClick={() => handleUnfollow(user._id)}
                   >
                     Unfollow
                   </Button>
@@ -154,7 +154,7 @@ export function UserSearch({ onClose, placeholder = "Search for friends..." }: U
                     variant="default"
                     size="sm"
                     className="ml-2"
-                    onClick={() => handleFollow(user.id)}
+                    onClick={() => handleFollow(user._id)}
                   >
                     <UserPlus className="h-4 w-4 mr-1" />
                     Follow

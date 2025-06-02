@@ -32,7 +32,7 @@ export default function UsersPage() {
   useEffect(() => {
     // Filter out the current user from the list
     const usersWithoutCurrent = currentUser
-      ? allUsers.filter((user: User) => user.id !== currentUser.id)
+      ? allUsers.filter((user: User) => user._id !== currentUser._id)
       : allUsers;
 
     if (searchQuery.trim() === "") {
@@ -151,7 +151,7 @@ export default function UsersPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredUsers.map((user: User) => (
                 <div
-                  key={user.id}
+                  key={user._id}
                   className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
                 >
                   <div className="flex items-center space-x-3">
@@ -169,7 +169,7 @@ export default function UsersPage() {
                       <AvatarFallback>{user.name?.substring(0, 2).toUpperCase() || "U"}</AvatarFallback>
                     </Avatar>
                     <div>
-                      <Link href={`/profile/${user.id}`} className="font-medium hover:underline">
+                      <Link href={`/profile/${user._id}`} className="font-medium hover:underline">
                         {user.name}
                       </Link>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -181,13 +181,13 @@ export default function UsersPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleUnfollow(user.id)}
+                      onClick={() => handleUnfollow(user._id)}
                     >
                       <UserMinus className="h-4 w-4 mr-2" />
                       Unfollow
                     </Button>
                   ) : (
-                    <Button size="sm" onClick={() => handleFollow(user.id)}>
+                    <Button size="sm" onClick={() => handleFollow(user._id)}>
                       <UserPlus className="h-4 w-4 mr-2" />
                       Follow
                     </Button>

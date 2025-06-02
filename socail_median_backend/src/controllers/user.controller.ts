@@ -7,6 +7,7 @@ import mongoose from 'mongoose';
 // Register
 export const register = async (req: Request, res: Response) => {
   try {
+
     const { username, email, password, name } = req.body;
 
     const existingUser = await User.findOne({ email });

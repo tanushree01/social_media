@@ -55,12 +55,12 @@ export const fetchUsers = createAsyncThunk(
       }
 
       const followingData = await followingResponse.json();
-      const followingIds = followingData.map((follow: any) => follow.Following.id);
+      const followingIds = followingData.map((follow: any) => follow.Following._id);
 
       // Mark users as following
       const usersWithFollowingStatus = allUsers.map((user: User) => ({
         ...user,
-        isFollowing: followingIds.includes(user.id),
+        isFollowing: followingIds.includes(user._id),
       }));
 
       return usersWithFollowingStatus;
@@ -204,13 +204,13 @@ const usersSlice = createSlice({
       // Follow user
       .addCase(followUser.fulfilled, (state, action) => {
         const userId = action.payload;
-        const user = state.allUsers.find(u => u.id === userId);
+        const user = state.allUsers.find(u => u._id === userId);
         if (user) {
           user.isFollowing = true;
         }
 
         // Also update in the followers list
-        const follower = state.followers.find(u => u.id === userId);
+        const follower = state.followers.find(u => u._id === userId);
         if (follower) {
           follower.isFollowing = true;
         }
@@ -221,19 +221,19 @@ const usersSlice = createSlice({
       // Unfollow user
       .addCase(unfollowUser.fulfilled, (state, action) => {
         const userId = action.payload;
-        const user = state.allUsers.find(u => u.id === userId);
+        const user = state.allUsers.find(u => u._id === userId);
         if (user) {
           user.isFollowing = false;
         }
 
         // Also update in the followers list
-        const follower = state.followers.find(u => u.id === userId);
+        const follower = state.followers.find(u => u._id === userId);
         if (follower) {
           follower.isFollowing = false;
         }
 
         // Remove from following list
-        state.following = state.following.filter(user => user.id !== userId);
+        state.following = state.following.filter(user => user._id !== userId);
       })
       .addCase(unfollowUser.rejected, (state, action) => {
         state.error = action.payload as string;

@@ -5,19 +5,17 @@ import User from '../models/user.model';
 import Post from '../models/post.model';
 
 export const createComment = async (req: Request, res: Response) => {
-  const session = await mongoose.startSession();
   try {
     const { content } = req.body;
     const postId = req.params.postId;
     const userId = req.user?.id;
 
-    if (!userId) return res.status(401).json({ message: 'Authentication required' });
+    if (!userId) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
 
-    session.startTransaction();
-
-    const post = await Post.findById(postId).session(session);
+    const post = await Post.findById(postId);
     if (!post) {
-      await session.abortTransaction();
       return res.status(404).json({ message: 'Post not found' });
     }
 
@@ -27,17 +25,13 @@ export const createComment = async (req: Request, res: Response) => {
       userId,
     });
 
-    await comment.save({ session });
+    await comment.save();
 
     post.commentCount += 1;
-    await post.save({ session });
+    await post.save();
 
     const commentWithUser = await Comment.findById(comment._id)
-      .populate('userId', 'id username name profilePicture')
-      .session(session);
-
-    await session.commitTransaction();
-    session.endSession();
+      .populate('userId', 'id username name profilePicture');
 
     res.status(201).json({
       message: 'Comment created successfully',
@@ -46,11 +40,10 @@ export const createComment = async (req: Request, res: Response) => {
       postId,
     });
   } catch (error) {
-    await session.abortTransaction();
-    session.endSession();
     res.status(500).json({ message: 'Error creating comment', error });
   }
 };
+
 
 export const getPostComments = async (req: Request, res: Response) => {
   try {

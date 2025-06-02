@@ -4,14 +4,14 @@ import { formatRelativeTime } from "@/lib/utils";
 import Link from "next/link";
 
 interface User {
-  id: number;
+  _id: string;
   username: string;
   name: string;
   profilePicture?: string;
 }
 
 interface Comment {
-  id: number;
+  _id: string;
   content: string;
   createdAt: string;
   user: User;
@@ -29,8 +29,8 @@ export function CommentList({ comments }: CommentListProps) {
   return (
     <div className="space-y-4 mt-4">
       {comments.map((comment) => (
-        <div key={comment.id} className="flex space-x-3">
-          <Link href={`/profile/${comment.user.id}`}>
+        <div key={comment._id} className="flex space-x-3">
+          <Link href={`/profile/${comment.user._id}`}>
             <img
               src={
                 comment.user.profilePicture
@@ -47,7 +47,7 @@ export function CommentList({ comments }: CommentListProps) {
             <div className="bg-gray-100 dark:bg-gray-700 rounded-lg px-4 py-2">
               <div className="flex items-center justify-between">
                 <Link
-                  href={`/profile/${comment.user.id}`}
+                  href={`/profile/${comment.user._id}`}
                   className="font-semibold text-sm text-gray-900 dark:text-white hover:underline"
                 >
                   {comment.user.name}

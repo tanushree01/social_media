@@ -16,7 +16,7 @@ import type { Post } from "@/redux/slices/postsSlice";
 
 // This Comment interface aligns with the one in CommentList.tsx
 interface Comment {
-  id: number;
+  _id: number;
   content: string;
   createdAt: string;
   user: {
@@ -45,14 +45,14 @@ export function PostCard({ post, onDelete, showCommentsInitially = true }: PostC
   const { toast } = useToast();
 
   const createdAt = post?.createdAt ? new Date(post.createdAt) : new Date();
-  const isOwnPost = currentUser?.id === post?.userId;
+  const isOwnPost = currentUser?._id === post?.userId;
 
   // Handle API response format which uses uppercase "Comments" and "Likes"
   useEffect(() => {
     // Handle Comments array (uppercase or lowercase from API)
     const commentsArray = post.Comments || post.comments || [];
     const formattedComments = commentsArray.map((comment: any) => ({
-      id: comment.id,
+      id: comment._id,
       content: comment.content,
       createdAt: comment.createdAt,
       user: comment.User || comment.user // Handle both uppercase and lowercase
@@ -61,7 +61,7 @@ export function PostCard({ post, onDelete, showCommentsInitially = true }: PostC
 
     // Check if current user has liked this post
     const likesArray = post.Likes || post.likes || [];
-    if (currentUser && likesArray.some((like: any) => like.userId === currentUser.id)) {
+    if (currentUser && likesArray.some((like: any) => like.userId === currentUser._id)) {
       setIsLiked(true);
     } else {
       setIsLiked(false);
@@ -82,9 +82,9 @@ export function PostCard({ post, onDelete, showCommentsInitially = true }: PostC
 
     try {
       await dispatch(toggleLike({ 
-        postId: post.id,
+        postId: post._id,
         token,
-        userId: currentUser.id
+        userId: currentUser._id
       })).unwrap();
 
       // Update UI immediately before Redux state updates
@@ -110,11 +110,11 @@ export function PostCard({ post, onDelete, showCommentsInitially = true }: PostC
 
     try {
       await dispatch(deletePost({ 
-        postId: post.id,
+        postId: post._id,
         token: token!
       })).unwrap();
 
-      onDelete(post.id);
+      onDelete(post._id);
       toast({
         title: "Success",
         description: "Post deleted successfully",
@@ -136,7 +136,7 @@ export function PostCard({ post, onDelete, showCommentsInitially = true }: PostC
     <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow mb-6">
       <div className="flex items-start justify-between">
         <div className="flex items-center">
-          <Link href={`/profile/${post?.User?.id || ""}`}>
+          <Link href={`/profile/${post?.User?._id || ""}`}>
             <img
               src={profileImageUrl}
               alt={post?.User?.username || "User"}
@@ -145,7 +145,7 @@ export function PostCard({ post, onDelete, showCommentsInitially = true }: PostC
           </Link>
           <div>
             <Link
-              href={`/profile/${post?.User?.id || ""}`}
+              href={`/profile/${post?.User?._id || ""}`}
               className="font-semibold text-gray-900 dark:text-white hover:underline"
             >
               {post?.User?.name || "Unknown"}
@@ -217,7 +217,7 @@ export function PostCard({ post, onDelete, showCommentsInitially = true }: PostC
 
       {showComments && (
         <div className="mt-4 pt-4 border-t dark:border-gray-700">
-          <CreateCommentForm postId={post.id} comments={post.Comments} onCommentAdded={handleCommentAdded} />
+          <CreateCommentForm postId={post._id} comments={post.Comments} onCommentAdded={handleCommentAdded} />
           <CommentList comments={comments} />
         </div>
       )}
