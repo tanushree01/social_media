@@ -1,10 +1,7 @@
-import { DataTypes, Model, Optional } from 'sequelize';
-import { sequelize } from '../config/database';
-import { User } from './user.model';
+import mongoose, { Schema, Document } from 'mongoose';
 
-interface PostAttributes {
-  id: number;
-  userId: number;
+export interface IPost extends Document {
+  userId: mongoose.Types.ObjectId;
   content: string;
   imageUrl?: string;
   likeCount: number;
@@ -13,57 +10,37 @@ interface PostAttributes {
   updatedAt?: Date;
 }
 
-// Define which attributes are optional during creation
-interface PostCreationAttributes extends Optional<PostAttributes, 'id' | 'imageUrl' | 'likeCount' | 'commentCount' | 'createdAt' | 'updatedAt'> {}
-
-export class Post extends Model<PostAttributes, PostCreationAttributes> implements PostAttributes {
-  public id!: number;
-  public userId!: number;
-  public content!: string;
-  public imageUrl!: string;
-  public likeCount!: number;
-  public commentCount!: number;
-  public readonly createdAt!: Date;
-  public readonly updatedAt!: Date;
-}
-
-Post.init(
+const PostSchema = new Schema<IPost>(
   {
-    id: {
-      type: DataTypes.INTEGER,
-      autoIncrement: true,
-      primaryKey: true,
-    },
     userId: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      references: {
-        model: User,
-        key: 'id',
-      },
+      type: Schema.Types.ObjectId,
+      required: true,
+      ref: 'User',
     },
     content: {
-      type: DataTypes.TEXT,
-      allowNull: false,
+      type: String,
+      required: true,
     },
     imageUrl: {
-      type: DataTypes.STRING,
-      allowNull: true,
+      type: String,
+      default: null,
     },
     likeCount: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      defaultValue: 0
+      type: Number,
+      required: true,
+      default: 0,
     },
     commentCount: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      defaultValue: 0
-    }
+      type: Number,
+      required: true,
+      default: 0,
+    },
   },
   {
-    sequelize,
-    modelName: 'Post',
-    tableName: 'posts',
+    timestamps: true,
+    collection: 'posts',
   }
-); 
+);
+
+const Post = mongoose.model<IPost>('Post', PostSchema);
+export default Post;

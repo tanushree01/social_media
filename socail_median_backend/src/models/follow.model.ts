@@ -1,59 +1,33 @@
-import { DataTypes, Model, Optional } from 'sequelize';
-import { sequelize } from '../config/database';
-import { User } from './user.model';
+import mongoose, { Schema, Document } from 'mongoose';
 
-interface FollowAttributes {
-  id: number;
-  followerId: number;
-  followingId: number;
+export interface IFollow extends Document {
+  followerId: mongoose.Types.ObjectId;   // User who follows
+  followingId: mongoose.Types.ObjectId;  // User being followed
   createdAt?: Date;
   updatedAt?: Date;
 }
 
-// Define which attributes are optional during creation
-interface FollowCreationAttributes extends Optional<FollowAttributes, 'id' | 'createdAt' | 'updatedAt'> {}
-
-export class Follow extends Model<FollowAttributes, FollowCreationAttributes> implements FollowAttributes {
-  public id!: number;
-  public followerId!: number;
-  public followingId!: number;
-  public readonly createdAt!: Date;
-  public readonly updatedAt!: Date;
-}
-
-Follow.init(
+const FollowSchema = new Schema<IFollow>(
   {
-    id: {
-      type: DataTypes.INTEGER,
-      autoIncrement: true,
-      primaryKey: true,
-    },
     followerId: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      references: {
-        model: User,
-        key: 'id',
-      },
+      type: Schema.Types.ObjectId,
+      required: true,
+      ref: 'User',
     },
     followingId: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      references: {
-        model: User,
-        key: 'id',
-      },
+      type: Schema.Types.ObjectId,
+      required: true,
+      ref: 'User',
     },
   },
   {
-    sequelize,
-    modelName: 'Follow',
-    tableName: 'follows',
-    indexes: [
-      {
-        unique: true,
-        fields: ['followerId', 'followingId'],
-      },
-    ],
+    timestamps: true,           // adds/maintains createdAt & updatedAt
+    collection: 'follows',      // matches your Sequelize tableName
   }
-); 
+);
+
+// Compound-unique index to prevent duplicate “follower → following” pairs
+FollowSchema.index({ followerId: 1, followingId: 1 }, { unique: true });
+
+const Follow = mongoose.model<IFollow>('Follow', FollowSchema);
+export default Follow;

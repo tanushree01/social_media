@@ -14,8 +14,7 @@ import likeRoutes from './routes/like.routes';
 import followRoutes from './routes/follow.routes';
 
 // Import models for sequelize sync
-import './models/index';
-import { sequelize } from './config/database';
+import { connectDB } from './config/database';
 
 const app = express();
 
@@ -43,10 +42,11 @@ app.get('/', (req, res) => {
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, async () => {
   console.log(`Server is running on port ${PORT}`);
-  
+
   try {
     // Sync database models
-    await sequelize.sync({ alter: true });
+
+    connectDB();
     console.log('Database synced successfully');
   } catch (error) {
     console.error('Failed to sync database:', error);

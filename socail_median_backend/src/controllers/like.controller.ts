@@ -1,71 +1,52 @@
 import { Request, Response } from 'express';
-import { Like } from '../models/like.model';
-import { User } from '../models/user.model';
-import { Post } from '../models/post.model';
-import { sequelize } from '../config/database';
-import { Transaction } from 'sequelize';
+import Like from '../models/like.model';
+import Post from '../models/post.model';
+import User from '../models/user.model';
+import mongoose from 'mongoose';
 
 export const toggleLike = async (req: Request, res: Response) => {
-  let transaction: Transaction | null = null;
-  
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
-    const postId = parseInt(req.params.postId, 10);
+    const postId = req.params.postId;
     const userId = req.user?.id;
 
     if (!userId) {
+      await session.abortTransaction();
       return res.status(401).json({ message: 'Authentication required' });
     }
 
-    // Start transaction to ensure atomic operations
-    transaction = await sequelize.transaction();
-
-    // Find the post
-    const post = await Post.findByPk(postId, { transaction });
+    const post = await Post.findById(postId).session(session);
     if (!post) {
-      await transaction.rollback();
+      await session.abortTransaction();
       return res.status(404).json({ message: 'Post not found' });
     }
 
-    // Check if like already exists
-    const existingLike = await Like.findOne({
-      where: {
-        postId,
-        userId
-      },
-      transaction
-    });
+    const existingLike = await Like.findOne({ postId, userId }).session(session);
 
     if (existingLike) {
-      // Unlike the post
-      await existingLike.destroy({ transaction });
-      
-      // Decrement the likeCount directly in the post
-      await post.decrement('likeCount', { transaction });
-      await post.reload({ transaction });
-      
-      await transaction.commit();
-      
-      res.json({ 
+      await existingLike.deleteOne({ session });
+      post.likeCount = (post.likeCount || 1) - 1;
+      await post.save({ session });
+
+      await session.commitTransaction();
+
+      return res.json({
         message: 'Post unliked successfully',
         liked: false,
         likeCount: post.likeCount,
         postId,
-        userId 
+        userId
       });
     } else {
-      // Like the post
-      await Like.create({
-        postId,
-        userId
-      }, { transaction });
-      
-      // Increment the likeCount directly in the post
-      await post.increment('likeCount', { transaction });
-      await post.reload({ transaction });
-      
-      await transaction.commit();
-      
-      res.json({ 
+      await Like.create([{ postId, userId }], { session });
+      post.likeCount = (post.likeCount || 0) + 1;
+      await post.save({ session });
+
+      await session.commitTransaction();
+
+      return res.json({
         message: 'Post liked successfully',
         liked: true,
         likeCount: post.likeCount,
@@ -74,33 +55,30 @@ export const toggleLike = async (req: Request, res: Response) => {
       });
     }
   } catch (error) {
-    if (transaction) await transaction.rollback();
-    res.status(500).json({ message: 'Error toggling like', error });
+    await session.abortTransaction();
+    return res.status(500).json({ message: 'Error toggling like', error });
+  } finally {
+    session.endSession();
   }
 };
 
 export const getPostLikes = async (req: Request, res: Response) => {
   try {
-    const postId = parseInt(req.params.postId, 10);
-    
-    const post = await Post.findByPk(postId);
+    const postId = req.params.postId;
+
+    const post = await Post.findById(postId);
     if (!post) {
       return res.status(404).json({ message: 'Post not found' });
     }
-    
-    const likes = await Like.findAll({
-      where: { postId },
-      include: [{
-        model: User,
-        attributes: ['id', 'username', 'name', 'profilePicture']
-      }]
-    });
+
+    const likes = await Like.find({ postId })
+      .populate('userId', 'id username name profilePicture');
 
     res.json({
-      likes,
-      likeCount: post.likeCount
+      likes: likes.map(like => like.userId),
+      likeCount: post.likeCount || 0
     });
   } catch (error) {
     res.status(500).json({ message: 'Error fetching likes', error });
   }
-}; 
+};

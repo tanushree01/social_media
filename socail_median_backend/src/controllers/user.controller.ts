@@ -1,35 +1,33 @@
 import { Request, Response } from 'express';
-import { User } from '../models/user.model';
+import User  from '../models/user.model'; // assumes a Mongoose schema
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { Op } from 'sequelize';
+import mongoose from 'mongoose';
 
-// Authentication Controllers
+// Register
 export const register = async (req: Request, res: Response) => {
   try {
     const { username, email, password, name } = req.body;
-    
-    // Check if user already exists
-    const existingUser = await User.findOne({ where: { email } });
+
+    const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ message: 'User already exists' });
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create user
-    const user = await User.create({
+    const user = new User({
       username,
       email,
       password: hashedPassword,
       name
     });
+    await user.save();
 
     res.status(201).json({
       message: 'User registered successfully',
       user: {
-        id: user.id,
+        id: user._id,
         username: user.username,
         email: user.email,
         name: user.name
@@ -40,25 +38,23 @@ export const register = async (req: Request, res: Response) => {
   }
 };
 
+// Login
 export const login = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
 
-    // Find user
-    const user = await User.findOne({ where: { email } });
+    const user = await User.findOne({ email });
     if (!user) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    // Check password
     const isValidPassword = await bcrypt.compare(password, user.password);
     if (!isValidPassword) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    // Generate JWT token
     const token = jwt.sign(
-      { id: user.id, email: user.email },
+      { id: user._id, email: user.email },
       process.env.JWT_SECRET || 'your-secret-key',
       { expiresIn: '24h' }
     );
@@ -67,7 +63,7 @@ export const login = async (req: Request, res: Response) => {
       message: 'Login successful',
       token,
       user: {
-        id: user.id,
+        id: user._id,
         username: user.username,
         email: user.email,
         name: user.name
@@ -78,14 +74,12 @@ export const login = async (req: Request, res: Response) => {
   }
 };
 
-// Profile Controllers
+// Get Profile
 export const getProfile = async (req: Request, res: Response) => {
   try {
     const userId = req.params.id;
-    const user = await User.findByPk(userId, {
-      attributes: { exclude: ['password'] }
-    });
 
+    const user = await User.findById(userId).select('-password');
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -96,26 +90,23 @@ export const getProfile = async (req: Request, res: Response) => {
   }
 };
 
+// Update Profile
 export const updateProfile = async (req: Request, res: Response) => {
   try {
     const userId = req.params.id;
     const { name, bio } = req.body;
-    
-    const user = await User.findByPk(userId);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
 
-    // Update user profile
-    await user.update({
-      name: name || user.name,
-      bio: bio || user.bio
-    });
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    user.name = name || user.name;
+    user.bio = bio || user.bio;
+    await user.save();
 
     res.json({
       message: 'Profile updated successfully',
       user: {
-        id: user.id,
+        id: user._id,
         username: user.username,
         name: user.name,
         bio: user.bio
@@ -126,17 +117,17 @@ export const updateProfile = async (req: Request, res: Response) => {
   }
 };
 
+// Update Profile Picture
 export const updateProfilePicture = async (req: Request, res: Response) => {
   try {
     const userId = req.params.id;
-    const profilePicture = 'uploads/'+ req.file?.filename; // Assuming you're using multer for file upload
+    const profilePicture = 'uploads/' + req.file?.filename;
 
-    const user = await User.findByPk(userId);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
 
-    await user.update({ profilePicture });
+    user.profilePicture = profilePicture;
+    await user.save();
 
     res.json({
       message: 'Profile picture updated successfully',
@@ -147,31 +138,30 @@ export const updateProfilePicture = async (req: Request, res: Response) => {
   }
 };
 
+// Search Users
 export const searchUsers = async (req: Request, res: Response) => {
   try {
-    const { query } = req.query;
+    const query = req.query.query as string;
     const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
     const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
-    
+
     if (!query) {
       return res.status(400).json({ message: 'Search query is required' });
     }
 
-    const users = await User.findAll({
-      where: {
-        [Op.or]: [
-          { username: { [Op.like]: `%${query}%` } },
-          { name: { [Op.like]: `%${query}%` } }
-        ]
-      },
-      attributes: ['id', 'username', 'name', 'bio', 'profilePicture'],
-      limit,
-      offset,
-    });
+    const users = await User.find({
+      $or: [
+        { username: { $regex: query, $options: 'i' } },
+        { name: { $regex: query, $options: 'i' } }
+      ]
+    })
+      .select('id username name bio profilePicture')
+      .skip(offset)
+      .limit(limit);
 
-    return res.status(200).json(users);
+    res.status(200).json(users);
   } catch (error) {
     console.error('Error searching users:', error);
-    return res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error' });
   }
 };

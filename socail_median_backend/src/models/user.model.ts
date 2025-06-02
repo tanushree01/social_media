@@ -1,8 +1,6 @@
-import { DataTypes, Model, Optional } from 'sequelize';
-import { sequelize } from '../config/database';
+import mongoose, { Schema, Document } from 'mongoose';
 
-interface UserAttributes {
-  id: number;
+export interface IUser extends Document {
   username: string;
   email: string;
   password: string;
@@ -13,61 +11,49 @@ interface UserAttributes {
   updatedAt?: Date;
 }
 
-// Define which attributes are optional during creation
-interface UserCreationAttributes extends Optional<UserAttributes, 'id' | 'bio' | 'profilePicture' | 'createdAt' | 'updatedAt'> {}
-
-export class User extends Model<UserAttributes, UserCreationAttributes> implements UserAttributes {
-  public id!: number;
-  public username!: string;
-  public email!: string;
-  public password!: string;
-  public name!: string;
-  public bio!: string;
-  public profilePicture!: string;
-  public readonly createdAt!: Date;
-  public readonly updatedAt!: Date;
-}
-
-User.init(
+const UserSchema = new Schema<IUser>(
   {
-    id: {
-      type: DataTypes.INTEGER,
-      autoIncrement: true,
-      primaryKey: true,
-    },
     username: {
-      type: DataTypes.STRING,
-      allowNull: false,
+      type: String,
+      required: true,
       unique: true,
+      trim: true,
     },
     email: {
-      type: DataTypes.STRING,
-      allowNull: false,
+      type: String,
+      required: true,
       unique: true,
+      trim: true,
+      lowercase: true,
       validate: {
-        isEmail: true,
+        validator: function (email: string) {
+          return /^\S+@\S+\.\S+$/.test(email);
+        },
+        message: 'Invalid email format',
       },
     },
     password: {
-      type: DataTypes.STRING,
-      allowNull: false,
+      type: String,
+      required: true,
     },
     name: {
-      type: DataTypes.STRING,
-      allowNull: false,
+      type: String,
+      required: true,
     },
     bio: {
-      type: DataTypes.TEXT,
-      allowNull: true,
+      type: String,
+      default: '',
     },
     profilePicture: {
-      type: DataTypes.STRING,
-      allowNull: true,
+      type: String,
+      default: '',
     },
   },
   {
-    sequelize,
-    modelName: 'User',
-    tableName: 'users',
+    timestamps: true,
+    collection: 'users',
   }
 );
+
+const User = mongoose.model<IUser>('User', UserSchema);
+export default User;

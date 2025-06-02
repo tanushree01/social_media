@@ -1,13 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { User } from '../models/user.model';
+import User  from '../models/user.model'; // Mongoose User model
 
 // Extend Express Request type to include user
 declare global {
   namespace Express {
     interface Request {
       user?: {
-        id: number;
+        id: string;      // Mongoose ObjectId is a string
         email: string;
       };
     }
@@ -21,13 +21,12 @@ export const authenticate = async (
 ) => {
   try {
     const authHeader = req.headers.authorization;
-    
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({ message: 'Authentication required' });
     }
 
     const token = authHeader.split(' ')[1];
-    
     if (!token) {
       return res.status(401).json({ message: 'Authentication required' });
     }
@@ -35,16 +34,21 @@ export const authenticate = async (
     const decoded = jwt.verify(
       token,
       process.env.JWT_SECRET || 'your-secret-key'
-    ) as { id: number; email: string };
+    ) as { id: string; email: string };
 
-    // Add user info to request
+    // Optional: Check if user still exists in DB
+    const user = await User.findById(decoded.id);
+    if (!user) {
+      return res.status(401).json({ message: 'User not found or deleted' });
+    }
+
     req.user = {
-      id: decoded.id,
-      email: decoded.email
+      id: (user?._id || "").toString(),
+      email: user.email
     };
 
     next();
   } catch (error) {
-    return res.status(401).json({ message: 'Invalid token' });
+    return res.status(401).json({ message: 'Invalid or expired token' });
   }
-}; 
+};

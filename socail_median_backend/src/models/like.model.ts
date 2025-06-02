@@ -1,60 +1,33 @@
-import { DataTypes, Model, Optional } from 'sequelize';
-import { sequelize } from '../config/database';
-import { User } from './user.model';
-import { Post } from './post.model';
+import mongoose, { Schema, Document } from 'mongoose';
 
-interface LikeAttributes {
-  id: number;
-  userId: number;
-  postId: number;
+export interface ILike extends Document {
+  userId: mongoose.Types.ObjectId;  // User who liked
+  postId: mongoose.Types.ObjectId;  // Post being liked
   createdAt?: Date;
   updatedAt?: Date;
 }
 
-// Define which attributes are optional during creation
-interface LikeCreationAttributes extends Optional<LikeAttributes, 'id' | 'createdAt' | 'updatedAt'> {}
-
-export class Like extends Model<LikeAttributes, LikeCreationAttributes> implements LikeAttributes {
-  public id!: number;
-  public userId!: number;
-  public postId!: number;
-  public readonly createdAt!: Date;
-  public readonly updatedAt!: Date;
-}
-
-Like.init(
+const LikeSchema = new Schema<ILike>(
   {
-    id: {
-      type: DataTypes.INTEGER,
-      autoIncrement: true,
-      primaryKey: true,
-    },
     userId: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      references: {
-        model: User,
-        key: 'id',
-      },
+      type: Schema.Types.ObjectId,
+      required: true,
+      ref: 'User',
     },
     postId: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      references: {
-        model: Post,
-        key: 'id',
-      },
+      type: Schema.Types.ObjectId,
+      required: true,
+      ref: 'Post',
     },
   },
   {
-    sequelize,
-    modelName: 'Like',
-    tableName: 'likes',
-    indexes: [
-      {
-        unique: true,
-        fields: ['userId', 'postId'],
-      },
-    ],
+    timestamps: true, // createdAt & updatedAt
+    collection: 'likes',
   }
-); 
+);
+
+// Ensure each user can like a post only once
+LikeSchema.index({ userId: 1, postId: 1 }, { unique: true });
+
+const Like = mongoose.model<ILike>('Like', LikeSchema);
+export default Like;

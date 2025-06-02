@@ -1,86 +1,72 @@
 import { Request, Response } from 'express';
-import { Comment } from '../models/comment.model';
-import { User } from '../models/user.model';
-import { Post } from '../models/post.model';
-import { sequelize } from '../config/database';
-import { Transaction } from 'sequelize';
+import mongoose from 'mongoose';
+import Comment from '../models/comment.model';
+import User from '../models/user.model';
+import Post from '../models/post.model';
 
 export const createComment = async (req: Request, res: Response) => {
-  let transaction: Transaction | null = null;
-  
+  const session = await mongoose.startSession();
   try {
     const { content } = req.body;
-    const postId = parseInt(req.params.postId, 10);
+    const postId = req.params.postId;
     const userId = req.user?.id;
 
-    if (!userId) {
-      return res.status(401).json({ message: 'Authentication required' });
-    }
+    if (!userId) return res.status(401).json({ message: 'Authentication required' });
 
-    // Start transaction
-    transaction = await sequelize.transaction();
+    session.startTransaction();
 
-    // Find the post
-    const post = await Post.findByPk(postId, { transaction });
+    const post = await Post.findById(postId).session(session);
     if (!post) {
-      await transaction.rollback();
+      await session.abortTransaction();
       return res.status(404).json({ message: 'Post not found' });
     }
 
-    const comment = await Comment.create({
+    const comment = new Comment({
       content,
       postId,
-      userId
-    }, { transaction });
-
-    const commentWithUser = await Comment.findByPk(comment.id, {
-      include: [{
-        model: User,
-        attributes: ['id', 'username', 'name', 'profilePicture']
-      }],
-      transaction
+      userId,
     });
 
-    // Increment the commentCount directly in the post
-    await post.increment('commentCount', { transaction });
-    await post.reload({ transaction });
-    
-    await transaction.commit();
+    await comment.save({ session });
+
+    post.commentCount += 1;
+    await post.save({ session });
+
+    const commentWithUser = await Comment.findById(comment._id)
+      .populate('userId', 'id username name profilePicture')
+      .session(session);
+
+    await session.commitTransaction();
+    session.endSession();
 
     res.status(201).json({
       message: 'Comment created successfully',
       comment: commentWithUser,
       commentCount: post.commentCount,
-      postId
+      postId,
     });
   } catch (error) {
-    if (transaction) await transaction.rollback();
+    await session.abortTransaction();
+    session.endSession();
     res.status(500).json({ message: 'Error creating comment', error });
   }
 };
 
 export const getPostComments = async (req: Request, res: Response) => {
   try {
-    const postId = parseInt(req.params.postId, 10);
-    
-    const post = await Post.findByPk(postId);
-    if (!post) {
-      return res.status(404).json({ message: 'Post not found' });
-    }
-    
-    const comments = await Comment.findAll({
-      where: { postId },
-      include: [{
-        model: User,
-        attributes: ['id', 'username', 'name', 'profilePicture']
-      }],
-      order: [['createdAt', 'DESC']]
-    });
+    const postId = req.params.postId;
+
+    const post = await Post.findById(postId);
+    if (!post) return res.status(404).json({ message: 'Post not found' });
+
+    const comments = await Comment.find({ postId })
+      .populate('userId', 'id username name profilePicture')
+      .sort({ createdAt: -1 });
 
     res.json({
       comments,
       commentCount: post.commentCount,
-      postId
+      postId,
     });
   } catch (error) {
     res.status(500).json({ message: 'Error fetching comments', error });
@@ -89,44 +75,33 @@ export const getPostComments = async (req: Request, res: Response) => {
 
 export const updateComment = async (req: Request, res: Response) => {
   try {
-    const commentId = parseInt(req.params.id, 10);
+    const commentId = req.params.id;
     const userId = req.user?.id;
     const { content } = req.body;
 
-    if (!userId) {
-      return res.status(401).json({ message: 'Authentication required' });
-    }
+    if (!userId) return res.status(401).json({ message: 'Authentication required' });
 
-    const comment = await Comment.findByPk(commentId);
-    if (!comment) {
-      return res.status(404).json({ message: 'Comment not found' });
-    }
+    const comment = await Comment.findById(commentId);
+    if (!comment) return res.status(404).json({ message: 'Comment not found' });
 
-    // Check if user owns the comment
-    if (comment.userId !== userId) {
+    if (comment.userId.toString() !== userId) {
       return res.status(403).json({ message: 'Unauthorized to update this comment' });
     }
 
-    const postId = comment.postId;
-    const post = await Post.findByPk(postId);
-    if (!post) {
-      return res.status(404).json({ message: 'Post not found' });
-    }
+    comment.content = content;
+    await comment.save();
 
-    await comment.update({ content });
+    const post = await Post.findById(comment.postId);
+    if (!post) return res.status(404).json({ message: 'Post not found' });
 
-    const updatedComment = await Comment.findByPk(commentId, {
-      include: [{
-        model: User,
-        attributes: ['id', 'username', 'name', 'profilePicture']
-      }]
-    });
+    const updatedComment = await Comment.findById(commentId)
+      .populate('userId', 'id username name profilePicture');
 
     res.json({
       message: 'Comment updated successfully',
       comment: updatedComment,
       commentCount: post.commentCount,
-      postId
+      postId: post._id,
     });
   } catch (error) {
     res.status(500).json({ message: 'Error updating comment', error });
@@ -134,53 +109,48 @@ export const updateComment = async (req: Request, res: Response) => {
 };
 
 export const deleteComment = async (req: Request, res: Response) => {
-  let transaction: Transaction | null = null;
-  
+  const session = await mongoose.startSession();
   try {
-    const commentId = parseInt(req.params.id, 10);
+    const commentId = req.params.id;
     const userId = req.user?.id;
 
-    if (!userId) {
-      return res.status(401).json({ message: 'Authentication required' });
-    }
+    if (!userId) return res.status(401).json({ message: 'Authentication required' });
 
-    // Start transaction
-    transaction = await sequelize.transaction();
+    session.startTransaction();
 
-    const comment = await Comment.findByPk(commentId, { transaction });
+    const comment = await Comment.findById(commentId).session(session);
     if (!comment) {
-      await transaction.rollback();
+      await session.abortTransaction();
       return res.status(404).json({ message: 'Comment not found' });
     }
 
-    // Check if user owns the comment
-    if (comment.userId !== userId) {
-      await transaction.rollback();
+    if (comment.userId.toString() !== userId) {
+      await session.abortTransaction();
       return res.status(403).json({ message: 'Unauthorized to delete this comment' });
     }
 
-    const postId = comment.postId;
-    const post = await Post.findByPk(postId, { transaction });
+    const post = await Post.findById(comment.postId).session(session);
     if (!post) {
-      await transaction.rollback();
+      await session.abortTransaction();
       return res.status(404).json({ message: 'Post not found' });
     }
 
-    await comment.destroy({ transaction });
+    await comment.deleteOne({ session });
 
-    // Decrement the commentCount directly in the post
-    await post.decrement('commentCount', { transaction });
-    await post.reload({ transaction });
-    
-    await transaction.commit();
+    post.commentCount = Math.max(post.commentCount - 1, 0);
+    await post.save({ session });
 
-    res.json({ 
+    await session.commitTransaction();
+    session.endSession();
+
+    res.json({
       message: 'Comment deleted successfully',
       commentCount: post.commentCount,
-      postId
+      postId: post._id,
     });
   } catch (error) {
-    if (transaction) await transaction.rollback();
+    await session.abortTransaction();
+    session.endSession();
     res.status(500).json({ message: 'Error deleting comment', error });
   }
-}; 
+};
